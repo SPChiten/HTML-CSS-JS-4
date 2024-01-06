@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 100px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 80%;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: none;
+        }
+
+        th {
+            padding: 30px;
+            font-size: 30px;
+            text-align: center;
+            border-radius: 20px;
+            background-color: #ffffff;
+            border-bottom: 0px solid #ffffff;
+            margin-bottom: 30px;
+        }
+
+        td {
+            border: none solid #ddd;
+            padding: 15px;
+            font-size: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow none, background-color 0.2s, font-weight 0.2s;
+            border-radius: 40px !important;
+            margin: 50px;
+        }
+        
+        button {
+            padding: 10px;
+            margin: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #c8e9f7;
+            color: rgb(0, 0, 0);
+            border: none;
+            border-radius: 25px;
+        }
+
+        button:hover {
+            background-color: #0a13cb;
+            color:aqua;
+        }
+
+        .saturday {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .sunday {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .holiday {
+            background-color: #f39c12;
+        }
+
+        .today {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .selected {
+            transform: scale(1.1);
+            box-shadow: none;
+            background-color: #3498db;
+            color: white;
+        }
+
+        td:hover:not(.selected) {
+            transform: translateY(-2px);
+            box-shadow: none;
+            background-color: #ecf0f1;
+            font-weight: bold;
+            color:rgb(0, 242, 255);
+        }
+    </style>
+    <title>Enhanced Calendar</title>
+</head>
+<body>
+
+    <h1 id="month-year">Enhanced Calendar</h1>
+
+    <div>
+        <button onclick="previousMonth()">Previous Month</button>
+        <button onclick="nextMonth()">Next Month</button>
+        <button onclick="previousYear()">Previous Year</button>
+        <button onclick="nextYear()">Next Year</button>
+    </div>
+
+    <table id="calendar">
+        <thead>
+            <tr>
+                <th>Sun</th>
+                <th>Mon</th>
+                <th>Tue</th>
+                <th>Wed</th>
+                <th>Thu</th>
+                <th>Fri</th>
+                <th>Sat</th>
+            </tr>
+        </thead>
+        <tbody id="calendar-body"></tbody>
+    </table>
+
+    <script>
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let selectedDate = null;
+
+        async function generateCalendar() {
+            const calendarBody = document.getElementById('calendar-body');
+            calendarBody.innerHTML = '';
+
+            const today = new Date();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
+
+            let dateCounter = 1;
+
+            for (let i = 0; i < 6; i++) {
+                const row = document.createElement('tr');
+
+                for (let j = 0; j < 7; j++) {
+                    const cell = document.createElement('td');
+
+                    if (i === 0 && j < firstDayOfMonth) {
+                        cell.textContent = '';
+                    } else if (dateCounter > daysInMonth) {
+                        break;
+                    } else {
+                        cell.textContent = dateCounter;
+
+                        // Apply different styles for Saturdays and Sundays
+                        if (j === 6) {
+                            cell.classList.add('saturday');
+                        } else if (j === 0) {
+                            cell.classList.add('sunday');
+                        }
+
+                        // Check if the date is a holiday
+                        await checkHoliday(currentYear, currentMonth + 1, dateCounter, cell);
+
+                        // Add click event for date selection
+                        cell.addEventListener('click', () => selectDate(cell));
+
+                        // Highlight today's date
+                        if (
+                            today.getFullYear() === currentYear &&
+                            today.getMonth() === currentMonth &&
+                            dateCounter === today.getDate()
+                        ) {
+                            cell.classList.add('today');
+                        }
+
+                        dateCounter++;
+                    }
+
+                    row.appendChild(cell);
+                }
+
+                calendarBody.appendChild(row);
+            }
+        }
+
+        async function checkHoliday(year, month, day, cell) {
+            const response = await fetch(`https://date.nager.at/Api/v2/PublicHolidays/${year}/us`);
+            const holidays = await response.json();
+
+            const usHolidays = holidays.filter(h => new Date(h.date).getMonth() + 1 === month);
+
+            if (usHolidays.some(h => new Date(h.date).getDate() === day)) {
+                const holiday = usHolidays.find(h => new Date(h.date).getDate() === day);
+                const holidayName = holiday.name;
+                cell.classList.add('holiday');
+                cell.title = holidayName;
+            }
+        }
+
+        function updateMonthYearTitle() {
+            const monthYearTitle = document.getElementById('month-year');
+            monthYearTitle.textContent = `${getMonthName(currentMonth)} ${currentYear}`;
+        }
+
+        function getMonthName(month) {
+            const months = [
+                'January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'
+            ];
+
+            return months[month];
+        }
+
+        function selectDate(cell) {
+            if (selectedDate) {
+                selectedDate.classList.remove('selected');
+            }
+
+            selectedDate = cell;
+            selectedDate.classList.add('selected');
+        }
+
+        function previousMonth() {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            generateCalendar();
+            updateMonthYearTitle();
+        }
+
+        function nextMonth() {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            generateCalendar();
+            updateMonthYearTitle();
+        }
+
+        function previousYear() {
+            currentYear--;
+            generateCalendar();
+            updateMonthYearTitle();
+        }
+
+        function nextYear() {
+            currentYear++;
+            generateCalendar();
+            updateMonthYearTitle();
+        }
+
+        generateCalendar();
+        updateMonthYearTitle();
+    </script>
+
+</body>
+</html>
